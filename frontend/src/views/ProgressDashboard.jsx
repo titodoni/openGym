@@ -17,19 +17,11 @@ import { fatigueOf } from '../lib/recovery.js'
 
 export default function ProgressDashboard() {
   const S = useStore(s => s.S)
+  const update = useStore(s => s.update)
   const workouts = S.workouts || []
   const [copied, setCopied] = useState(false)
+  const [actionNotice, setActionNotice] = useState(null)
   const now = Date.now()
-
-  // Week 1 Comeback baseline
-  const week1Stats = {
-    volume: 17260,
-    durationMin: 279,
-    sets: 76,
-    reps: 680,
-    avgIntensity: 25.4,
-    density: 61.9,
-  }
 
   // Week 1 Day 1 baseline (Mon 19 Oct 2026: 3,215 kg, 66 min)
   const week1Day1Stats = {
@@ -85,16 +77,52 @@ export default function ProgressDashboard() {
 
   // Key PHUL lifts tracking
   const lifts = [
-    { id: '0025', name: 'Barbell Bench Press', weight: '35 kg', status: 'STAY', statusNote: 'Bench solo safety: leave ≥ 2 RIR, use rack safeties. Stay at 35 kg.' },
-    { id: '0314', name: 'Incline DB Bench Press', weight: '10 kg/arm', status: 'STAY', statusNote: 'Triceps hot in last set, form clean. Confirm 1 more session.' },
-    { id: '0027', name: 'Bent-Over Barbell Row', weight: '35 kg', status: 'READY', statusNote: 'Volume PR + clean 4x5 with ≥ 1 RIR. Ready to go up +2.5kg.' },
-    { id: '2330', name: 'Lat Pulldown (Cable)', weight: '30 kg', status: 'STAY', statusNote: 'Backup is Machine Row if cable station busy.' },
-    { id: '1162', name: 'Standing Military Press (Barbell)', weight: '20 kg', status: 'STAY', statusNote: 'Strict overhead path, no hanging stretches.' },
-    { id: '0294', name: 'DB Bicep Curl', weight: '7.5 kg/arm', status: 'STAY', statusNote: '3x10 clean, stay until 12 reps comfortable.' },
-    { id: '0241', name: 'Triceps Pushdown', weight: '15 kg', status: 'STAY', statusNote: 'Last rep struggling / triceps hot. Stay.' },
-    { id: '0043', name: 'Barbell Squat', weight: '30 kg', status: 'WATCH', statusNote: 'Power day: keep reps crisp. Watch knee & quad fatigue with running.' },
-    { id: '0032', name: 'Barbell Deadlift', weight: '45 kg', status: 'WATCH', statusNote: 'Clean hinge, no spinal flexion.' }
+    { id: '0025', routineId: 'phul-upper-power', name: 'Barbell Bench Press', weight: '35 kg', status: 'STAY', statusNote: 'Bench solo safety: leave ≥ 2 RIR, use rack safeties. Stay at 35 kg.' },
+    { id: '0314', routineId: 'phul-upper-power', name: 'Incline DB Bench Press', weight: '10 kg/arm', status: 'STAY', statusNote: 'Triceps hot in last set, form clean. Confirm 1 more session.' },
+    { id: '0027', routineId: 'phul-upper-power', name: 'Bent-Over Barbell Row', weight: '35 kg', status: 'READY', bumpKg: 2.5, statusNote: 'Volume PR + clean 4x5 with ≥ 1 RIR. Ready for +2.5 kg.' },
+    { id: '2330', routineId: 'phul-upper-power', name: 'Lat Pulldown (Cable)', weight: '30 kg', status: 'STAY', statusNote: 'Backup: Machine Row if cable station busy.' },
+    { id: '1162', routineId: 'phul-upper-power', name: 'Standing Military Press', weight: '20 kg', status: 'STAY', statusNote: 'Strict overhead path, no hanging stretches.' },
+    { id: '0294', routineId: 'phul-upper-power', name: 'DB Bicep Curl', weight: '7.5 kg/arm', status: 'STAY', statusNote: '3x10 clean, stay until 12 reps comfortable.' },
+    { id: '0241', routineId: 'phul-upper-power', name: 'Triceps Pushdown', weight: '15 kg', status: 'STAY', statusNote: 'Last rep struggling / triceps hot. Stay.' },
+    { id: '3593', routineId: 'phul-lower-power', name: 'Barbell Squat', weight: '30 kg', status: 'WATCH', statusNote: 'Power day: keep reps crisp. Watch knee & quad fatigue with running.' },
+    { id: '0032', routineId: 'phul-lower-power', name: 'Barbell Deadlift', weight: '45 kg', status: 'WATCH', statusNote: 'Clean hinge, no spinal flexion.' }
   ]
+
+  // Check if Week 3 rear-delt face pull is already in Thursday Upper Hypertrophy
+  const upperHyperRoutine = (S.routines || []).find(r => r.id === 'phul-upper-hyper')
+  const hasFacePull = (upperHyperRoutine?.ex || []).some(e => e.id === '5658' || e.note?.toLowerCase().includes('face pull'))
+
+  const handleAddFacePulls = () => {
+    update(draft => {
+      const r = (draft.routines || []).find(rt => rt.id === 'phul-upper-hyper')
+      if (r) {
+        if (!r.ex) r.ex = []
+        r.ex.push({
+          id: '5658', // cable seated face pull with rope
+          sets: 3,
+          reps: 15,
+          weight: 15,
+          note: 'Week 3 Rear-Delt addition (light 12–20 reps, 1–2 RIR)',
+        })
+      }
+    })
+    setActionNotice('Added Face Pulls (3×15) to Thursday Upper Hypertrophy routine!')
+    setTimeout(() => setActionNotice(null), 4000)
+  }
+
+  const handleApplyBump = (routineId, exerciseId, bump) => {
+    update(draft => {
+      const r = (draft.routines || []).find(rt => rt.id === routineId)
+      if (r && r.ex) {
+        const item = r.ex.find(e => e.id === exerciseId)
+        if (item) {
+          item.weight = (Number(item.weight) || 0) + bump
+        }
+      }
+    })
+    setActionNotice(`Applied +${bump} kg progression to routine!`)
+    setTimeout(() => setActionNotice(null), 4000)
+  }
 
   // RP 2024 landmarks vs Tito direct sets
   const rpLandmarks = [
@@ -107,7 +135,7 @@ export default function ProgressDashboard() {
     { muscle: 'Triceps', mevMrv: '4–6 / 16–20', directSets: '6 (13.5 eff.)', reading: 'Direct 6, comfortable with pressing credit' },
     { muscle: 'Front Delts', mevMrv: '0–2 / 8–12', directSets: 6, reading: 'Above MEV — do not add direct front-delt sets' },
     { muscle: 'Side Delts', mevMrv: '6–8 / 24–30', directSets: 3, reading: 'Below MEV direct; borderline' },
-    { muscle: 'Rear Delts', mevMrv: '0–4 / 12–20', directSets: 0, gap: true, reading: 'GAP: 0 direct sets (Week 3 will add Face Pulls/Reverse Flyes)' },
+    { muscle: 'Rear Delts', mevMrv: '0–4 / 12–20', directSets: hasFacePull ? 3 : 0, gap: !hasFacePull, reading: hasFacePull ? 'Added: 3 direct sets of Face Pulls' : 'GAP: 0 direct sets (Week 3 will add Face Pulls/Reverse Flyes)' },
     { muscle: 'Calves', mevMrv: '4–6 / 16–24', directSets: 6, reading: 'At MEV, well below MRV' }
   ]
 
@@ -131,6 +159,27 @@ export default function ProgressDashboard() {
 
   return (
     <div className="view" style={{ padding: 'var(--pad)', maxWidth: 840, margin: '0 auto' }}>
+      {/* Action Notification Banner */}
+      {actionNotice && (
+        <div
+          style={{
+            background: 'var(--green)',
+            color: '#000000',
+            padding: '10px 14px',
+            borderRadius: 'var(--r)',
+            fontWeight: 700,
+            fontSize: 13,
+            marginBottom: 16,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+          }}
+        >
+          <Icon name="check" />
+          <span>{actionNotice}</span>
+        </div>
+      )}
+
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <div>
@@ -140,6 +189,51 @@ export default function ProgressDashboard() {
         <div style={{ display: 'flex', gap: 8 }}>
           <Button variant="secondary" onClick={exportReport}>Export .md</Button>
           <Button variant="primary" onClick={copyReport}>{copied ? 'Copied!' : 'Report to Coach'}</Button>
+        </div>
+      </div>
+
+      {/* Week 3 Transition Banner */}
+      {!hasFacePull && (
+        <div
+          style={{
+            background: 'rgba(10, 132, 255, 0.12)',
+            border: 'var(--hair) solid var(--blue)',
+            borderRadius: 'var(--r-card)',
+            padding: 14,
+            marginBottom: 16,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: 12,
+          }}
+        >
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--label)' }}>Week 3 Plan: Rear-Delt Addition</div>
+            <div style={{ fontSize: 12, color: 'var(--label-2)', marginTop: 2 }}>
+              Add 2–3 sets of Face Pulls (light, 12–20 reps, 1–2 RIR) to Thursday Upper Hypertrophy to close the volume gap.
+            </div>
+          </div>
+          <Button variant="primary" onClick={handleAddFacePulls}>+ Add Face Pulls to Thursday</Button>
+        </div>
+      )}
+
+      {/* Solo Bench Press Safety Reminder */}
+      <div
+        style={{
+          background: 'rgba(255, 214, 10, 0.1)',
+          border: 'var(--hair) solid var(--yellow)',
+          borderRadius: 'var(--r-card)',
+          padding: '10px 14px',
+          marginBottom: 16,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+        }}
+      >
+        <span style={{ fontSize: 18 }}>⚠️</span>
+        <div style={{ fontSize: 12, color: 'var(--label)' }}>
+          <strong>Solo Lifter Safety:</strong> Barbell Bench Press must leave ≥ 2 RIR when solo. Always set and test rack safeties before loading. No dead hangs or overhead hanging stretches.
         </div>
       </div>
 
@@ -241,6 +335,7 @@ export default function ProgressDashboard() {
                 <th style={{ padding: '8px 6px', color: 'var(--label-2)', fontWeight: 600 }}>Load</th>
                 <th style={{ padding: '8px 6px', color: 'var(--label-2)', fontWeight: 600 }}>Status</th>
                 <th style={{ padding: '8px 6px', color: 'var(--label-2)', fontWeight: 600 }}>Coach Guidance</th>
+                <th style={{ padding: '8px 6px', color: 'var(--label-2)', fontWeight: 600 }}>Action</th>
               </tr>
             </thead>
             <tbody>
@@ -264,6 +359,19 @@ export default function ProgressDashboard() {
                     </span>
                   </td>
                   <td style={{ padding: '10px 6px', color: 'var(--label-2)', fontSize: 12 }}>{l.statusNote}</td>
+                  <td style={{ padding: '10px 6px' }}>
+                    {l.status === 'READY' && l.bumpKg ? (
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        onClick={() => handleApplyBump(l.routineId, l.id, l.bumpKg)}
+                      >
+                        +{l.bumpKg} kg
+                      </Button>
+                    ) : (
+                      <span style={{ fontSize: 11, color: 'var(--label-3)' }}>Hold</span>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
