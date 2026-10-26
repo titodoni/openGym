@@ -28,5 +28,12 @@ junit.xml
 coverage/
 frontend/bundle-size.json
 
+# Android builds & local properties
+*.apk
+frontend/android/local.properties
+frontend/android/.gradle/
+frontend/android/build/
+frontend/android/app/build/
+
 # Local planning notes
 docs/superpowers/plans/
