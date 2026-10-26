@@ -1,0 +1,34 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    # Route all API requests to the PHP Unix socket proxy
+    RewriteRule ^api(/.*)?$ /api/index.php [QSA,L]
+
+    # Serve existing files and directories directly
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # SPA fallback to index.html for all frontend routes (e.g. /progress, /history)
+    RewriteRule . /index.html [L]
+</IfModule>
+
+<IfModule mod_mime.c>
+    AddType application/javascript .js
+    AddType application/wasm .wasm
+    AddType application/manifest+json .json
+</IfModule>
+
+<IfModule mod_headers.c>
+    # Service Worker header
+    <FilesMatch "^sw\.js$">
+        Header set Service-Worker-Allowed "/"
+        Header set Cache-Control "no-cache, no-store, must-revalidate"
+    </FilesMatch>
+    
+    # Do not cache index.html
+    <FilesMatch "^index\.html$">
+        Header set Cache-Control "no-cache, no-store, must-revalidate"
+    </FilesMatch>
+</IfModule>

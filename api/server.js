@@ -37,7 +37,7 @@ import { stampPut } from './sync-stamps.js';
 import { atomicWrite as durableWrite } from './durable.js';
 import { excusedOn, nudgeFor, nudgeWindowOpen, toneOf } from './nudge.js';
 
-const PORT = +(process.env.PORT || 3000);
+const PORT = process.env.PORT && isNaN(+process.env.PORT) ? process.env.PORT : +(process.env.PORT || 3000);
 const DATA = process.env.DATA_DIR || '/data';
 const RP_ID = process.env.RP_ID || 'localhost';
 const ORIGIN = process.env.ORIGIN || 'http://localhost:8080';
@@ -2993,4 +2993,14 @@ server.headersTimeout = 60000;
 // port that was actually bound: with PORT=0 the OS picks one, and a caller that did not choose it
 // (the tests spawn the server that way, and so does anyone running two instances on one box) has
 // no other way to learn it.
-server.listen(PORT, () => console.log(`gym-api on :${server.address().port} (rpID=${RP_ID}, origin=${ORIGIN})`));
+if (typeof PORT === 'string' && fs.existsSync(PORT)) {
+  try { fs.unlinkSync(PORT); } catch {}
+}
+server.listen(PORT, () => {
+  if (typeof PORT === 'string') {
+    try { fs.chmodSync(PORT, 0o777); } catch {}
+    console.log(`gym-api on socket ${PORT} (rpID=${RP_ID}, origin=${ORIGIN})`);
+  } else {
+    console.log(`gym-api on :${server.address().port} (rpID=${RP_ID}, origin=${ORIGIN})`);
+  }
+});
