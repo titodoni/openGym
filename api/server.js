@@ -742,7 +742,7 @@ const clearCookie = COOKIE === LEGACY_COOKIE
 // The password routes are deliberately NOT exempt. A name and a password are a credential too,
 // but one a hostile page can know — its own — so an exempt POST /api/login/password would let
 // any site sign a visitor into the attacker's account and collect what they log (login CSRF).
-const CSRF_EXEMPT = new Set(['POST /api/pair/redeem']);
+const CSRF_EXEMPT = new Set(['POST /api/pair/redeem', 'POST /api/pair/login']);
 // The routes that answer to the credential in the body and never to a Bearer. No Bearer is the
 // credential that acts there, so none buys the shortcut below: any valid token would do, the
 // attacker's own included.
@@ -1071,7 +1071,7 @@ setInterval(() => { AUTH_BURST.sweep(); ADDR_FAILS.sweep(); ACCOUNT_FAILS.sweep(
 // Route -> the kind of failure it can count. Every route listed here also spends the burst
 // budget; `null` spends only that.
 const THROTTLED = {
-  'POST /api/login/password': 'password', 'POST /api/login/password-reset': 'password',
+  'POST /api/login/password': 'password', 'POST /api/pair/login': 'password', 'POST /api/login/password-reset': 'password',
   'POST /api/register/password': 'signup',
   'POST /api/account/password': 'password', 'DELETE /api/account/password': null,
   // Setting an e-mail only spends the budget and asks the address's e-mail pause; an address
@@ -1418,6 +1418,34 @@ const passwordRoutes = {
     }
     audit(req, 'auth.password.ok', { user });
     json(res, 200, { user: publicUser(user) }, { 'Set-Cookie': sessionCookie(user) });
+  },
+
+  'POST /api/pair/login': async (req, res) => {
+    const body = await readBody(req);
+    const target = loginTarget(body);
+    const pw = typeof body.password === 'string' ? body.password : '';
+    if (!target || !pw) return json(res, 400, { error: 'name and password required', code: 'missing' });
+    const check = passwordAttempt(req, res, target.key);
+    if (!check) return;
+    const { user } = target;
+    const rec = user?.pw;
+    if (!(await check.verify(pw, rec?.h))) {
+      check.failed(user, 'bad-password', target.email ? 'unknown-email' : 'unknown-name');
+      return json(res, 401, WRONG);
+    }
+    const still = () => hasPassword(user) && user.pw === rec && target.resolve() === user;
+    if (!still()) {
+      check.void();
+      return json(res, 401, WRONG);
+    }
+    if (user.disabled) {
+      check.void();
+      audit(req, 'auth.pair.fail', { ok: false, user, msg: 'account-disabled' });
+      return json(res, 403, { error: 'this account has been disabled', code: 'disabled' });
+    }
+    check.ok();
+    audit(req, 'auth.pair.login.ok', { user });
+    json(res, 200, { token: makeSession(user), user: publicUser(user) });
   },
 
   // For browsers that cannot make a passkey at all: plain http on a LAN address, some Firefox

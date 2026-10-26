@@ -19,7 +19,7 @@ import { countChanges, syncFingerprint } from '../lib/sync-changes.js'
 import { saveWorkoutEdit, deleteEditedWorkout } from '../lib/session-edit.js'
 import { appBase } from '../lib/app-base.js'
 import { linkTokenFromSearch, stripLinkFromUrl } from '../lib/device-link.js'
-import { loadRemote, chooseLocal, forgetRemote, connect, normalizeServerUrl, renewToken } from '../lib/remote.js'
+import { loadRemote, chooseLocal, forgetRemote, connect, connectWithPassword, normalizeServerUrl, renewToken } from '../lib/remote.js'
 import { loadCfAccess } from '../lib/cf-access.js'
 import { loadCoachDevice, saveCoachDevice, coachDeviceSettings } from '../lib/coach-device.js'
 import { RTL_LANGS } from '../lib/i18n-core.js'
@@ -1831,6 +1831,17 @@ export const useStore = create((set, get) => {
       await nativePersist(true)   // the file holds this account's copy before anything else can happen
       // Paired from the first-launch screen: the permission steps come next. From Settings later
       // on, nothing new is asked here.
+      set(st => ({ needsMobileOnboarding: false, permSteps: st.permSteps || st.needsMobileOnboarding }))
+    },
+    async connectToServerWithPassword(url, name, password, ask) {
+      const user = await connectWithPassword(url, name, password)
+      get().setUser(user, { adopt: true })
+      if (keeping) { await keeping; keeping = null }
+      pairedBase = normalizeServerUrl(url)
+      setSync({ server: pairedBase })
+      await get().refreshConfig()
+      await get().adoptProfile(ask)
+      await nativePersist(true)
       set(st => ({ needsMobileOnboarding: false, permSteps: st.permSteps || st.needsMobileOnboarding }))
     },
     // Leaves remote mode and drops back to local-only, the way signOut does: never with changes

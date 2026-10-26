@@ -58,3 +58,19 @@ export async function connect(rawUrl, code) {
   await saveRemoteFile({ mode: 'remote', base, token, user })
   return user
 }
+
+export async function connectWithPassword(rawUrl, name, password) {
+  const base = normalizeServerUrl(rawUrl)
+  if (!base) throw new Error('Enter a valid server address')
+  const r = await fetch(base + '/api/pair/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: String(name || '').trim(), password: String(password || '') })
+  })
+  const data = await r.json()
+  if (!r.ok) throw new Error(data.error || 'Login failed')
+  const { token, user } = data
+  setRemoteAuth(base, token)
+  await saveRemoteFile({ mode: 'remote', base, token, user })
+  return user
+}
