@@ -1,3 +1,4 @@
+import { generateCoachReport } from './lib/phul-coach.js'
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from './store/useStore.js'
 import { useUI } from './store/useUI.js'
@@ -2753,6 +2754,11 @@ function WorkoutDetail({ w, close }) {
       }
     })}>{t('Save as routine')}</Button>
     <div style={{ height: 8 }} />
+    <Button icon="send" variant="primary" style={{ marginBottom: 8 }} onClick={() => {
+      const text = generateCoachReport(w, { S: st, nextDayText: 'Check app plan' });
+      navigator.clipboard?.writeText(text);
+      alert('Coach report copied to clipboard!');
+    }}>{t('Report to Coach')}</Button>
     <Button icon="copy" onClick={copyAsText}>{t('Copy as text')}</Button>
     <div style={{ height: 8 }} />
     <Button icon="share" onClick={shareAsImage}>{t('Share as image')}</Button>
@@ -3503,7 +3509,14 @@ function FinishSummary({ w, prs, e1prs = [], close }) {
     {/* The moment for a progress photo or the clip of a set: the workout is already saved, so
         what is added here goes straight onto its record. */}
     <div style={{ textAlign: 'start' }}><WorkoutMediaSection w={w} hint /></div>
-    <Button variant="primary" onClick={() => closeThenNav(close, '/home')}>{t('Nice!')}</Button>
+    <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+      <Button variant="secondary" icon="send" onClick={() => {
+        const text = generateCoachReport(w, { S: st, nextDayText: 'Check app plan' });
+        navigator.clipboard?.writeText(text);
+        alert('Coach report copied to clipboard!');
+      }}>{t('Report to Coach')}</Button>
+      <Button variant="primary" style={{ flex: 1 }} onClick={() => closeThenNav(close, '/home')}>{t('Nice!')}</Button>
+    </div>
   </div>
 }
 export function finishWorkout() {
